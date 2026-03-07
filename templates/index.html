@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<title>CreepChat</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="manifest" href="/static/manifest.json">
+
+<meta name="theme-color" content="#00ff9c">
+</head>
+
+<body>
+<canvas id="matrix"></canvas>
+<div id="boot">
+<div id="bootText"></div>
+</div>
+<div class="chat-box">
+
+<h2>creepchat</h2>
+
+<div class="join-area">
+<input id="username" placeholder="Enter username">
+<button onclick="joinChat()">Join</button>
+</div>
+
+<div class="layout">
+
+<div class="chat-area">
+
+<ul id="messages"></ul>
+
+<!-- typing indicator -->
+<div id="typing"></div>
+
+<div class="input-area">
+<input id="message" autocomplete="off" placeholder="> type message...">
+<button onclick="sendMessage()">Send</button>
+</div>
+
+</div>
+
+<div class="users">
+<h3>Online</h3>
+<ul id="userList"></ul>
+</div>
+
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+<script>
+
+var socket = io();
+var username = "";
+
+/* hacker usernames if user leaves blank */
+var hackerNames = [
+"ghost","void","spectre","phantom",
+"cipher","shadow","mantis","hex",
+"zero","nova","glitch","crypt"
+]
+
+/* boot animation */
+
+var bootLines = [
+"initializing creepchat node...",
+"loading encryption modules...",
+"establishing secure channel...",
+"connecting to ghostnet...",
+"handshake complete",
+"system ready"
+]
+
+document.addEventListener("DOMContentLoaded", function(){
+
+    var bootText = document.getElementById("bootText")
+
+    let i = 0
+
+    function nextLine(){
+
+        if(i < bootLines.length){
+
+            bootText.innerHTML += bootLines[i] + "<br>"
+            i++
+
+            setTimeout(nextLine, 500)
+
+        }else{
+
+            setTimeout(function(){
+                document.getElementById("boot").style.display="none"
+            },700)
+
+        }
+
+    }
+
+    nextLine()
+
+    var messageInput = document.getElementById("message")
+
+    /* send message with Enter */
+    messageInput.addEventListener("keypress", function(event){
+        if(event.key === "Enter"){
+            sendMessage()
+        }
+    })
+
+    /* typing event */
+    messageInput.addEventListener("input", function(){
+        if(username !== ""){
+            socket.emit("typing", username)
+        }
+    })
+
+})
+
+/* join chat */
+
+function joinChat(){
+
+    username = document.getElementById("username").value.trim()
+
+    /* random hacker name */
+    if(username === ""){
+        username = hackerNames[Math.floor(Math.random()*hackerNames.length)] + Math.floor(Math.random()*99)
+    }
+
+    socket.emit("join", username)
+}
+
+/* online users */
+
+socket.on("users", function(list){
+
+    var ul = document.getElementById("userList")
+    ul.innerHTML = ""
+
+    list.forEach(function(user){
+
+        var li = document.createElement("li")
+        li.textContent = user
+        ul.appendChild(li)
+
+    })
+
+})
+
+/* receive messages */
+
+socket.on('message', function(msg){
+
+    var li = document.createElement("li")
+
+    var parts = msg.split(":")
+    var user = parts[0]
+    var text = parts.slice(1).join(":")
+
+if(msg.includes("joined the chat") || msg.includes("left the chat")){
+    li.style.color = "#00ffaa"
+    li.textContent = "[SYSTEM] " + msg
+}else{
+    li.innerHTML = "<strong>" + user + ":</strong> " + text
+}
+    var messages = document.getElementById("messages")
+    messages.appendChild(li)
+
+    messages.scrollTop = messages.scrollHeight
+})
+
+/* typing indicator */
+
+socket.on("typing", function(user){
+
+    var indicator = document.getElementById("typing")
+
+    indicator.textContent = user + " is typing..."
+
+    setTimeout(function(){
+        indicator.textContent = ""
+    },1000)
+
+})
+
+/* command system */
+
+function runCommand(cmd){
+
+    if(cmd === "/clear"){
+        document.getElementById("messages").innerHTML = ""
+        return true
+    }
+
+    if(cmd === "/ping"){
+        alert("pong")
+        return true
+    }
+
+    if(cmd.startsWith("/nick")){
+
+        var newName = cmd.split(" ")[1]
+
+        if(newName){
+            username = newName
+            alert("username changed to " + newName)
+        }
+
+        return true
+    }
+
+    return false
+}
+
+/* send message */
+
+function sendMessage(){
+
+    if(username === ""){
+        alert("Join chat first")
+        return
+    }
+
+    var input = document.getElementById("message")
+    var text = input.value.trim()
+
+    if(text === "") return
+
+    /* run command */
+    if(text.startsWith("/")){
+        if(runCommand(text)){
+            input.value=""
+            return
+        }
+    }
+
+    socket.send(username + ": " + text)
+
+    input.value = ""
+}
+/* register service worker */
+
+if ("serviceWorker" in navigator) {
+
+  navigator.serviceWorker.register("/static/sw.js")
+
+}
+/* MATRIX RAIN */
+
+var canvas = document.getElementById("matrix")
+var ctx = canvas.getContext("2d")
+
+canvas.height = window.innerHeight
+canvas.width = window.innerWidth
+
+var letters = "01"
+letters = letters.split("")
+
+var fontSize = 14
+var columns = canvas.width / fontSize
+
+var drops = []
+
+for(var i = 0; i < columns; i++){
+    drops[i] = 1
+}
+
+function draw(){
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.05)"
+    ctx.fillRect(0,0,canvas.width,canvas.height)
+
+    ctx.fillStyle = "#00ff9c"
+    ctx.font = fontSize + "px monospace"
+
+    for(var i = 0; i < drops.length; i++){
+
+        var text = letters[Math.floor(Math.random()*letters.length)]
+
+        ctx.fillText(text, i*fontSize, drops[i]*fontSize)
+
+        if(drops[i]*fontSize > canvas.height && Math.random() > 0.975){
+            drops[i] = 0
+        }
+
+        drops[i]++
+    }
+}
+
+setInterval(draw,33)
+</script>
