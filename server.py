@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, send_from_directory
 from flask_socketio import SocketIO, send, emit
+import os
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 users = {}
 
@@ -10,31 +11,17 @@ users = {}
 def home():
     return render_template("index.html")
 
-@socketio.on("typing")
-def handle_typing(username):
-    emit("typing", username, broadcast=True, include_self=False)
+# Essential for PWA Installability
+@app.route('/manifest.json')
+def serve_manifest():
+    return send_from_directory('static', 'manifest.json')
 
-@socketio.on("join")
-def handle_join(username):
-    users[request.sid] = username
-    send(f"{username} joined the chat", broadcast=True)
-    emit("users", list(users.values()), broadcast=True)
+@app.route('/sw.js')
+def serve_sw():
+    return send_from_directory('static', 'sw.js')
 
-
-@socketio.on("message")
-def handle_message(msg):
-    send(msg, broadcast=True)
-
-
-@socketio.on("disconnect")
-def handle_disconnect():
-    username = users.get(request.sid)
-
-    if username:
-        send(f"{username} left the chat", broadcast=True)
-        del users[request.sid]
-        emit("users", list(users.values()), broadcast=True)
-
+# ... rest of your socketio logic ...
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    socketio.run(app, host="0.0.0.0", port=port)
